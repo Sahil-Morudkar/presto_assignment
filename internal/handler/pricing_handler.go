@@ -10,18 +10,24 @@ import (
 	"github.com/Sahil-Morudkar/presto_assignment/internal/service"
 )
 
+
+// PricingHandler handles HTTP requests related to pricing schedules
 type PricingHandler struct {
 	service *service.PricingService
 }
 
+
+// NewPricingHandler creates a new instance of PricingHandler with the given service
 func NewPricingHandler(service *service.PricingService) *PricingHandler {
 	return &PricingHandler{service: service}
 }
 
+// CreateSchedule handles POST /chargers/{chargerID}/pricing-schedules
 func (h *PricingHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
+	// Extract chargerID from URL path
 	chargerID := chi.URLParam(r, "chargerID")
 	if chargerID == "" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -34,8 +40,10 @@ func (h *PricingHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) 
 
 	var req model.CreateScheduleRequest
 
+	// Decode JSON body into struct
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		// Respond with error if JSON is invalid
 		json.NewEncoder(w).Encode(model.APIResponse{
 			Status:  "error",
 			Message: "Invalid request payload",
@@ -45,8 +53,7 @@ func (h *PricingHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) 
 
 	err := h.service.CreatePricingSchedule(r.Context(), chargerID, req)
 	if err != nil {
-
-		// You can improve this by mapping specific errors
+		// Respond with error if service returns an error (e.g., validation failure)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(model.APIResponse{
 			Status:  "error",
@@ -55,6 +62,7 @@ func (h *PricingHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Respond with success message if schedule creation is successful
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(model.APIResponse{
 		Status:  "success",
@@ -78,9 +86,11 @@ func (h *PricingHandler) GetDailyPricing(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	//
 	dateStr := r.URL.Query().Get("date")
 	if dateStr == "" {
 		w.WriteHeader(http.StatusBadRequest)
+		//
 		json.NewEncoder(w).Encode(model.APIResponse{
 			Status:  "error",
 			Message: "date query parameter is required (YYYY-MM-DD)",
@@ -88,9 +98,11 @@ func (h *PricingHandler) GetDailyPricing(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Delegate to service layer to fetch pricing for the given charger and date
 	result, err := h.service.GetDailyPricing(r.Context(), chargerID, dateStr)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		// Respond with error message from service (e.g., charger not found, invalid date format)
 		json.NewEncoder(w).Encode(model.APIResponse{
 			Status:  "error",
 			Message: err.Error(),
@@ -98,6 +110,7 @@ func (h *PricingHandler) GetDailyPricing(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Respond with the retrieved pricing data
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(model.APIResponse{
 		Status:  "success",
@@ -106,6 +119,7 @@ func (h *PricingHandler) GetDailyPricing(w http.ResponseWriter, r *http.Request)
 	})
 }
 
+// CreateBulkSchedule handles POST /pricing-schedules/bulk
 func (h *PricingHandler) CreateBulkSchedule(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -121,6 +135,7 @@ func (h *PricingHandler) CreateBulkSchedule(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	//
 	err := h.service.CreateBulkPricingSchedule(r.Context(), req)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

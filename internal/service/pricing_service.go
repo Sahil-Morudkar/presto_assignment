@@ -11,10 +11,12 @@ import (
 	"github.com/Sahil-Morudkar/presto_assignment/internal/repository"
 )
 
+// PricingService contains business logic for pricing schedules
 type PricingService struct {
 	repo *repository.PricingRepository
 }
 
+// NewPricingService creates a new instance of PricingService with the given repository
 func NewPricingService(repo *repository.PricingRepository) *PricingService {
 	return &PricingService{repo: repo}
 }
@@ -32,6 +34,7 @@ func (s *PricingService) CreatePricingSchedule(
 		return err
 	}
 
+	// Return error if charger does not exist
 	if !exists {
 		return errors.New("charger not found")
 	}
@@ -121,6 +124,7 @@ func (s *PricingService) GetDailyPricing(
 		return nil, errors.New("date must be in YYYY-MM-DD format")
 	}
 
+	// Delegate to repository to fetch pricing data
 	return s.repo.GetDailyPricing(ctx, chargerID, inputDate)
 }
 
@@ -129,10 +133,12 @@ func (s *PricingService) CreateBulkPricingSchedule(
 	req model.BulkCreateScheduleRequest,
 ) error {
 
+	// Validate input
 	if len(req.ChargerIDs) == 0 {
 		return errors.New("charger_ids cannot be empty")
 	}
 
+	// Validate effective_from format (YYYY-MM-DD)
 	effectiveFrom, err := time.Parse("2006-01-02", req.EffectiveFrom)
 	if err != nil {
 		return errors.New("effective_from must be in YYYY-MM-DD format")
@@ -155,8 +161,7 @@ func (s *PricingService) CreateBulkPricingSchedule(
 		req.Periods[i].EndTime = end
 	}
 
-	// Optional: validate all charger IDs exist before DB operation
-
+	// Delegate to repository for bulk update
 	failedID, err := s.repo.CreateBulkSchedule(
 		ctx,
 		req.ChargerIDs,
