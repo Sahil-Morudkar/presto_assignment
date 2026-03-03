@@ -6,11 +6,14 @@ import (
 
 	"github.com/Sahil-Morudkar/presto_assignment/db"
 	"github.com/Sahil-Morudkar/presto_assignment/internal/routes"
+	"github.com/joho/godotenv"
 )
 
 func main() {
 
 	// Initialize the database connection
+	_ = godotenv.Load()
+
 	database, err := db.NewDB()
 	if err != nil {
 		log.Fatal(err)

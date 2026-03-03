@@ -1,19 +1,39 @@
-package routes
+package db
 
 import (
-	"github.com/go-chi/chi/v5"
+	"context"
+	"errors"
+	"log"
+	"os"
+
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/Sahil-Morudkar/presto_assignment/internal/handler"
 )
 
-func NewRouter(db *pgxpool.Pool) *chi.Mux {
-	r := chi.NewRouter()
+func NewDB() (*pgxpool.Pool, error) {
 
-	pricingHandler := handler.NewPricingHandler(db)
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		return nil, errors.New("DATABASE_URL is not set")
+	}
 
-	r.Route("/api/v1", func(api chi.Router) {
-		api.Get("/chargers/{chargerId}/pricing", pricingHandler.GetPricing)
-	})
+	// Parse pool configuration
+	config, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
+		return nil, err
+	}
 
-	return r
+	// Create connection pool
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify DB connection
+	if err := pool.Ping(context.Background()); err != nil {
+		return nil, err
+	}
+
+	log.Println("✅ Database connected successfully")
+
+	return pool, nil
 }
