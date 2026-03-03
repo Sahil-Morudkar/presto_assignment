@@ -151,3 +151,67 @@ func (r *PricingRepository) GetDailyPricing(
 		Periods:       periods,
 	}, nil
 }
+
+// CreateBulkSchedule applies same schedule to multiple chargers atomically.
+// If any charger fails, entire transaction is rolled back.
+// Returns failed charger ID (if any).
+func (r *PricingRepository) CreateBulkSchedule(
+	ctx context.Context,
+	chargerIDs []string,
+	effectiveFrom time.Time,
+	periods []model.PricingPeriodInput,
+) (string, error) {
+
+	tx, err := r.DB.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(ctx)
+
+	for _, chargerID := range chargerIDs {
+
+		// Close previous active schedule
+		_, err := tx.Exec(ctx, `
+			UPDATE tou_pricing_schedules
+			SET effective_to = $1
+			WHERE charger_id = $2
+			AND effective_to IS NULL
+		`, effectiveFrom.AddDate(0, 0, -1), chargerID)
+
+		if err != nil {
+			return chargerID, err
+		}
+
+		// Insert new schedule
+		var scheduleID string
+		err = tx.QueryRow(ctx, `
+			INSERT INTO tou_pricing_schedules (charger_id, effective_from)
+			VALUES ($1, $2)
+			RETURNING id
+		`, chargerID, effectiveFrom).Scan(&scheduleID)
+
+		if err != nil {
+			return chargerID, err
+		}
+
+		// Insert pricing periods
+		for _, p := range periods {
+			_, err = tx.Exec(ctx, `
+				INSERT INTO tou_pricing_periods
+				(schedule_id, start_time, end_time, price_per_kwh)
+				VALUES ($1, $2, $3, $4)
+			`, scheduleID, p.StartTime, p.EndTime, p.PricePerKwh)
+
+			if err != nil {
+				return chargerID, err
+			}
+		}
+	}
+
+	// Commit only if all succeed
+	if err := tx.Commit(ctx); err != nil {
+		return "", err
+	}
+
+	return "", nil
+}

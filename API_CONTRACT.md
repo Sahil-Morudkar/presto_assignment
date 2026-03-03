@@ -6,7 +6,7 @@ Base URL
 http://localhost:8080
 =========================================================
 1️⃣ Create Pricing Schedule
-Endpoint
+Endpoint:
 POST /chargers/{chargerID}/pricing-schedules
 
 Description:
@@ -76,7 +76,7 @@ HTTP Status: 400 Bad Request or 404 Not Found
 =========================================================
 =========================================================
 2️⃣ Get Daily Pricing Schedule
-Endpoint
+Endpoint:
 GET /chargers/{chargerID}/pricing?date=YYYY-MM-DD
 
 Description:
@@ -144,10 +144,88 @@ Assumptions:
 3) Time precision is minute-level.
 4) Cross-midnight intervals are currently not supported.
 
-Future Improvements (Optional):
-1) Store start_time, end_time in minute only format (0,1440). This prevents errors for fetching data at exactly 23:59
-2) We have used float in code, which can lead to calculation errors, use string instead.
-3) Support historical price lookup with datetime.
-4) Support cross-midnight intervals.
+Time Zone Interpretation:
+1) The date parameter is interpreted in the charger’s local timezone.
+2) The system retrieves pricing based on the charger’s local calendar date.
+3) Clients must provide the calendar date corresponding to the charger’s physical location.
 
 =========================================================
+=========================================================
+📄 Bulk Pricing Schedule API Contract
+Bulk Create Pricing Schedule
+Endpoint:
+POST /pricing-schedules/bulk
+
+Description:
+1) Applies the same TOU pricing schedule to multiple chargers in a single request.
+2) The operation is atomic i.e. If any charger update fails, the entire transaction is rolled back.
+3) The response will include the charger_id where the first failure occurred.
+
+Request Body:
+{
+  "charger_ids": [
+    "11111111-1111-1111-1111-111111111111",
+    "22222222-2222-2222-2222-222222222222"
+  ],
+  "effective_from": "2026-03-10",
+  "periods": [
+    {
+      "start_time": "00:00",
+      "end_time": "06:00",
+      "price_per_kwh": "0.15"
+    },
+    {
+      "start_time": "06:00",
+      "end_time": "18:00",
+      "price_per_kwh": "0.25"
+    }
+  ]
+}
+Field Definitions
+Field	        Type	    Required	Description
+charger_ids	    Array<UUID>	Yes	        List of chargers to apply schedule to
+effective_from	String	    Yes	        Date from which schedule becomes active (YYYY-MM-DD)
+periods	        Array	    Yes	        List of pricing periods
+start_time	    String	    Yes	        Start time (inclusive)
+end_time	    String	    Yes	        End time (exclusive)
+price_per_kwh	Float	    Yes	        Cost per kWh
+
+Business Rules/Assumptions:
+1) All charger_ids must exist.
+2) Periods must not overlap.
+3) Time intervals follow [start_time, end_time) semantics.
+4) Only one active schedule per charger at a time.
+5) Entire request is processed within a single transaction.
+
+Success Response:
+{
+  "status": "success",
+  "message": "Bulk pricing schedule created successfully",
+}
+HTTP Status: 201 Created
+
+Failure Response (Atomic Rollback):
+If any charger fails:
+{
+  "status": "error",
+  "message": "Bulk update failed",
+  "data": {
+    "failed_charger_id": "22222222-2222-2222-2222-222222222222"
+  }
+}
+HTTP Status: 400 Bad Request or 500 Internal Server Error
+All changes are rolled back.
+
+Time Zone Handling:
+1) effective_from is interpreted in the charger’s local timezone.
+2) Schedule evaluation follows charger-local calendar semantics.
+
+=========================================================
+Future Improvements (Optional):
+1) Instead of using SQL TIME, store start_time and end_time as integer minute offsets from midnight (e.g., 00:00 → 0, 24:00 → 1440).
+This simplifies comparisons, avoids edge cases at 23:59, and provides cleaner interval evaluation using [start, end) semantics.
+2) We have used float64 for price_per_kwh but using float64 may cause rounding errors in financial calculations.
+In production, pricing should use fixed-point precision (e.g., NUMERIC in DB and decimal handling in Go or string representation in API) to ensure accurate billing.
+3) Expose a new API to support exact timestamp-based pricing lookup (e.g., ?datetime=RFC3339).
+This enables precise billing and audit capabilities for charging sessions.
+

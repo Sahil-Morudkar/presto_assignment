@@ -20,6 +20,7 @@ func NewRouter(db *pgxpool.Pool) *chi.Mux {
 	// Route
 	r.Post("/chargers/{chargerID}/pricing-schedules", pricingHandler.CreateSchedule)
 	r.Get("/chargers/{chargerID}/pricing", pricingHandler.GetDailyPricing)
+	r.Post("/pricing-schedules/bulk", pricingHandler.CreateBulkSchedule)
 
 	return r
 }
