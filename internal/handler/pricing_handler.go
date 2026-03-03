@@ -105,3 +105,35 @@ func (h *PricingHandler) GetDailyPricing(w http.ResponseWriter, r *http.Request)
 		Data:    result,
 	})
 }
+
+func (h *PricingHandler) CreateBulkSchedule(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var req model.BulkCreateScheduleRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(model.APIResponse{
+			Status:  "error",
+			Message: "invalid request body",
+		})
+		return
+	}
+
+	err := h.service.CreateBulkPricingSchedule(r.Context(), req)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(model.APIResponse{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(model.APIResponse{
+		Status:  "success",
+		Message: "bulk pricing schedule created successfully",
+	})
+}

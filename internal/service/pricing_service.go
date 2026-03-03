@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sort"
 	"time"
+	"fmt"
 
 	"github.com/Sahil-Morudkar/presto_assignment/internal/model"
 	"github.com/Sahil-Morudkar/presto_assignment/internal/repository"
@@ -121,4 +122,51 @@ func (s *PricingService) GetDailyPricing(
 	}
 
 	return s.repo.GetDailyPricing(ctx, chargerID, inputDate)
+}
+
+func (s *PricingService) CreateBulkPricingSchedule(
+	ctx context.Context,
+	req model.BulkCreateScheduleRequest,
+) error {
+
+	if len(req.ChargerIDs) == 0 {
+		return errors.New("charger_ids cannot be empty")
+	}
+
+	effectiveFrom, err := time.Parse("2006-01-02", req.EffectiveFrom)
+	if err != nil {
+		return errors.New("effective_from must be in YYYY-MM-DD format")
+	}
+
+	// Normalize times
+	for i, p := range req.Periods {
+
+		start, err := normalizeTime(p.StartTime)
+		if err != nil {
+			return err
+		}
+
+		end, err := normalizeTime(p.EndTime)
+		if err != nil {
+			return err
+		}
+
+		req.Periods[i].StartTime = start
+		req.Periods[i].EndTime = end
+	}
+
+	// Optional: validate all charger IDs exist before DB operation
+
+	failedID, err := s.repo.CreateBulkSchedule(
+		ctx,
+		req.ChargerIDs,
+		effectiveFrom,
+		req.Periods,
+	)
+
+	if err != nil {
+		return fmt.Errorf("bulk update failed at charger_id: %s", failedID)
+	}
+
+	return nil
 }

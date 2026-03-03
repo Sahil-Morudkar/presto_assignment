@@ -27,3 +27,10 @@ type DailyPricingResponse struct {
 	EffectiveFrom string                  `json:"effective_from"`
 	Periods       []PricingPeriodResponse `json:"periods"`
 }
+
+// BulkCreateScheduleRequest represents bulk pricing update request
+type BulkCreateScheduleRequest struct {
+	ChargerIDs    []string             `json:"charger_ids"`
+	EffectiveFrom string               `json:"effective_from"`
+	Periods       []PricingPeriodInput `json:"periods"`
+}
